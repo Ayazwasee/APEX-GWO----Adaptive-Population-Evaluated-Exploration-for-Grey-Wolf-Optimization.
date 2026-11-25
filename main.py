@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="APEX-GWO Lab", version="2.3.0")
+app = FastAPI(title="APEX-GWO Lab", version="2.4.0")
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 if ROOT_DIR not in sys.path:
@@ -20,14 +20,12 @@ class RunRequest(BaseModel):
     problem_id: str = "knapsack"
     n_agents: int = Field(default=20, ge=6, le=50)
     max_iter: int = Field(default=40, ge=10, le=120)
-    pop_weight: float = Field(default=0.25, ge=0.05, le=0.60)
     seed: int = Field(default=42, ge=0, le=99999)
 
 
 class SuiteRequest(BaseModel):
-    n_agents: int = Field(default=18, ge=6, le=40)
-    max_iter: int = Field(default=35, ge=10, le=80)
-    pop_weight: float = Field(default=0.25, ge=0.05, le=0.60)
+    n_agents: int = Field(default=20, ge=6, le=40)
+    max_iter: int = Field(default=40, ge=10, le=80)
     seed: int = Field(default=42, ge=0, le=99999)
 
 
@@ -35,8 +33,30 @@ class Arena2DRequest(BaseModel):
     benchmark_id: str = "rastrigin_2d"
     n_agents: int = Field(default=18, ge=6, le=40)
     max_iter: int = Field(default=35, ge=10, le=70)
-    pop_weight: float = Field(default=0.25, ge=0.05, le=0.60)
     seed: int = Field(default=42, ge=0, le=99999)
+
+
+def evaluate_outcome(scores_by_algo, mode, tol=1e-4):
+    rounded = {aid: round(float(val), 4) for aid, val in scores_by_algo.items()}
+    best_val = min(rounded.values()) if mode == "min" else max(rounded.values())
+    top_ids = [aid for aid in ALGO_ORDER if abs(rounded[aid] - best_val) <= tol]
+
+    if len(top_ids) > 1:
+        return {
+            "is_tie": True,
+            "winner_id": None,
+            "winner_name": "Tie",
+            "tied_ids": top_ids,
+            "tied_names": [ALGORITHMS[aid]["name"] for aid in top_ids],
+        }
+    wid = top_ids[0]
+    return {
+        "is_tie": False,
+        "winner_id": wid,
+        "winner_name": ALGORITHMS[wid]["name"],
+        "tied_ids": [],
+        "tied_names": [],
+    }
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -160,20 +180,15 @@ def run_single_problem(req: RunRequest):
             lb=ps.lb,
             ub=ps.ub,
             mode=ps.mode,
-            pop_value_func=getattr(ps, "pop_value_func", None),
-            pop_weight=req.pop_weight,
             n_agents=req.n_agents,
             max_iter=req.max_iter,
             seed=req.seed,
             record_2d=False,
         )
 
+    scores = {aid: results[aid].best_fitness for aid in ALGO_ORDER}
+    outcome = evaluate_outcome(scores, ps.mode)
     orig_fit = results["original_gwo"].best_fitness
-    winner_id = (
-        min(ALGO_ORDER, key=lambda k: results[k].best_fitness)
-        if ps.mode == "min"
-        else max(ALGO_ORDER, key=lambda k: results[k].best_fitness)
-    )
 
     payload_algos = []
     for aid in ALGO_ORDER:
@@ -184,7 +199,6 @@ def run_single_problem(req: RunRequest):
             if ps.mode == "min"
             else ((r.best_fitness - orig_fit) / denom) * 100.0
         )
-        init_anchor = getattr(r, "init_best_pop_value", None)
         payload_algos.append({
             "id": aid,
             "code": ALGORITHMS[aid]["code"],
@@ -199,10 +213,10 @@ def run_single_problem(req: RunRequest):
             "convergence_curve": [round(v, 5) for v in r.convergence_curve],
             "a_curve": [round(v, 4) for v in r.a_curve],
             "diversity_curve": [round(v, 4) for v in r.diversity_curve],
-            "init_best_pop_value": round(init_anchor, 4) if init_anchor is not None else None,
             "initial_pop_audit": r.initial_pop_audit[:10],
             "decoded": ps.decode_func(r.best_position),
-            "is_winner": aid == winner_id,
+            "is_winner": (not outcome["is_tie"]) and (aid == outcome["winner_id"]),
+            "is_tied": outcome["is_tie"] and (aid in outcome["tied_ids"]),
         })
 
     return {
@@ -215,7 +229,11 @@ def run_single_problem(req: RunRequest):
             "unit": ps.unit,
             "description": ps.description,
         },
-        "winner_id": winner_id,
+        "is_tie": outcome["is_tie"],
+        "winner_id": outcome["winner_id"],
+        "winner_name": outcome["winner_name"],
+        "tied_ids": outcome["tied_ids"],
+        "tied_names": outcome["tied_names"],
         "results": payload_algos,
     }
 
@@ -225,6 +243,7 @@ def run_all_twelve(req: SuiteRequest):
     suite = build_problem_suite(seed=req.seed)
     rows = []
     wins = {aid: 0 for aid in ALGO_ORDER}
+    ties_count = 0
     deltas = {aid: [] for aid in ALGO_ORDER}
 
     for pid, ps in suite.items():
@@ -235,8 +254,6 @@ def run_all_twelve(req: SuiteRequest):
                 lb=ps.lb,
                 ub=ps.ub,
                 mode=ps.mode,
-                pop_value_func=getattr(ps, "pop_value_func", None),
-                pop_weight=req.pop_weight,
                 n_agents=req.n_agents,
                 max_iter=req.max_iter,
                 seed=req.seed,
@@ -244,12 +261,11 @@ def run_all_twelve(req: SuiteRequest):
             )
             scores[aid] = res.best_fitness
 
-        winner_id = (
-            min(ALGO_ORDER, key=lambda k: scores[k])
-            if ps.mode == "min"
-            else max(ALGO_ORDER, key=lambda k: scores[k])
-        )
-        wins[winner_id] += 1
+        outcome = evaluate_outcome(scores, ps.mode)
+        if outcome["is_tie"]:
+            ties_count += 1
+        else:
+            wins[outcome["winner_id"]] += 1
 
         orig = scores["original_gwo"]
         denom = abs(orig) + 1e-9
@@ -267,14 +283,18 @@ def run_all_twelve(req: SuiteRequest):
             "dim": ps.dim,
             "scores": {aid: round(scores[aid], 4) for aid in ALGO_ORDER},
             "deltas": row_deltas,
-            "winner_id": winner_id,
-            "winner_name": ALGORITHMS[winner_id]["name"],
+            "is_tie": outcome["is_tie"],
+            "winner_id": outcome["winner_id"],
+            "winner_name": outcome["winner_name"],
+            "tied_ids": outcome["tied_ids"],
+            "tied_names": outcome["tied_names"],
         })
 
     avg_deltas = {aid: round(float(np.mean(deltas[aid])), 2) for aid in ALGO_ORDER}
     return {
         "total_problems": len(rows),
         "wins": wins,
+        "ties_count": ties_count,
         "avg_delta_vs_original": avg_deltas,
         "rows": rows,
     }
@@ -302,8 +322,6 @@ def run_arena_2d(req: Arena2DRequest):
             lb=ps.lb,
             ub=ps.ub,
             mode=ps.mode,
-            pop_value_func=getattr(ps, "pop_value_func", None),
-            pop_weight=req.pop_weight,
             n_agents=req.n_agents,
             max_iter=req.max_iter,
             seed=req.seed,
