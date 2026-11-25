@@ -1,0 +1,1822 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GWO Lab — Grey Wolf Optimization Benchmark</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-alt: #f1f3f6;
+  --border: #e2e6ec;
+  --border-strong: #cbd2dc;
+  --text: #111827;
+  --text-muted: #5b6472;
+  --accent: #1d4ed8;
+  --accent-hover: #1e40af;
+  --accent-soft: #eff6ff;
+  --win-bg: #ecfdf5;
+  --win-text: #047857;
+  --win-border: #a7f3d0;
+  --code-bg: #0f172a;
+  --code-text: #e2e8f0;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --radius: 10px;
+}
+
+[data-theme="dark"] {
+  --bg: #0c0e12;
+  --surface: #14171d;
+  --surface-alt: #1b1f27;
+  --border: #262b36;
+  --border-strong: #373e4d;
+  --text: #edf0f5;
+  --text-muted: #939dad;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-soft: rgba(59, 130, 246, 0.14);
+  --win-bg: rgba(16, 185, 129, 0.12);
+  --win-text: #34d399;
+  --win-border: rgba(16, 185, 129, 0.35);
+  --code-bg: #090b0f;
+  --code-text: #e2e8f0;
+  --shadow: none;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+.small {
+  font-size: 0.8rem;
+}
+
+.muted-text {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Header */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-mark {
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.55rem;
+  border-radius: 6px;
+  background: var(--text);
+  color: var(--surface);
+}
+
+.brand-title {
+  font-weight: 600;
+  font-size: 0.98rem;
+  line-height: 1.2;
+}
+
+.brand-sub {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.nav {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--surface-alt);
+  padding: 0.22rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.nav-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.42rem 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nav-btn:hover {
+  color: var(--text);
+}
+
+.nav-btn.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.icon-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 0.4rem 0.75rem;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  border-color: var(--border-strong);
+}
+
+/* Main Container */
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+
+/* Control Bar */
+.control-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--shadow);
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.control-group.grow {
+  flex: 1 1 250px;
+}
+
+.control-group.compact {
+  width: 112px;
+}
+
+.control-group label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+input[type="number"],
+select {
+  height: 36px;
+  padding: 0 0.65rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+input[type="number"]:focus,
+select:focus {
+  outline: 2px solid var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.btn-primary,
+.btn-secondary {
+  height: 36px;
+  padding: 0 1rem;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.btn-secondary:hover {
+  background: var(--surface-alt);
+}
+
+.small-btn {
+  height: 30px;
+  padding: 0 0.7rem;
+  font-size: 0.8rem;
+}
+
+/* Views */
+.view {
+  display: none;
+}
+
+.view.active {
+  display: block;
+}
+
+.problem-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.problem-banner h1,
+.section-head h1 {
+  margin: 0.25rem 0 0.2rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.problem-banner p,
+.section-head p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  max-width: 780px;
+}
+
+.meta-line {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.tag {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.18rem 0.5rem;
+  border-radius: 5px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tag.muted {
+  background: var(--surface-alt);
+  color: var(--text-muted);
+}
+
+.banner-stat {
+  background: var(--win-bg);
+  border: 1px solid var(--win-border);
+  color: var(--win-text);
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Algorithm Cards */
+.algo-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.15rem;
+}
+
+.algo-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.75rem;
+  box-shadow: var(--shadow);
+}
+
+.algo-card.winner {
+  border-color: var(--win-text);
+}
+
+.algo-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.algo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.win-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--win-text);
+  background: var(--win-bg);
+  padding: 0.14rem 0.45rem;
+  border-radius: 4px;
+}
+
+.algo-card h3 {
+  margin: 0.25rem 0 0.15rem;
+  font-size: 0.96rem;
+  font-weight: 600;
+}
+
+.algo-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.metric-val {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.metric-sub {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+.pos-delta {
+  color: var(--win-text);
+  font-weight: 600;
+}
+
+.neg-delta {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.algo-card-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Panels & Two-Column Grid */
+.two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow);
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.panel-head h2 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+}
+
+.panel-note {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.inline-select {
+  height: 30px;
+  font-size: 0.8rem;
+}
+
+.segmented {
+  display: inline-flex;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.seg-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 500;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.seg-btn.active {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.chart-wrap {
+  width: 100%;
+}
+
+.chart-wrap canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-top: 0.65rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Tables */
+.table-scroll {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.data-table th {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 600;
+  background: var(--surface-alt);
+}
+
+.data-table tbody tr:hover {
+  background: var(--surface-alt);
+}
+
+.role-pill {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.role-alpha { background: var(--win-bg); color: var(--win-text); }
+.role-beta { background: var(--accent-soft); color: var(--accent); }
+.role-delta { background: var(--surface-alt); color: var(--text); }
+.role-omega { color: var(--text-muted); }
+
+/* Section Head & Suite Scoreboard */
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.head-actions,
+.playback-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.scoreboard {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.score-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+}
+
+.score-tile .tile-title {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.score-tile .tile-wins {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 1.45rem;
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+.score-tile .tile-delta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* Domain Visualizer */
+.kv-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.kv-item {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0.65rem 0.8rem;
+}
+
+.kv-label {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.kv-val {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-top: 0.15rem;
+}
+
+.knap-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.knap-cell {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem;
+  font-size: 0.73rem;
+  text-align: center;
+  background: var(--surface-alt);
+  color: var(--text-muted);
+}
+
+.knap-cell.picked {
+  background: var(--win-bg);
+  border-color: var(--win-border);
+  color: var(--win-text);
+  font-weight: 600;
+}
+
+/* 2D Arena Grid */
+.arena-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.arena-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem;
+}
+
+.arena-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+
+.arena-card canvas {
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+/* Algorithms & Code Tab */
+.algo-spec-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.spec-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.spec-card h3 {
+  margin: 0.25rem 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.spec-card p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.spec-pills {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.spec-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.modal {
+  width: min(860px, 100%);
+  max-height: 86vh;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.modal-head {
+  padding: 0.9rem 1.15rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.modal-head h3 {
+  margin: 0.1rem 0 0;
+  font-size: 1rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.modal-body {
+  overflow: auto;
+  background: var(--code-bg);
+}
+
+.code-block {
+  margin: 0;
+  padding: 1.1rem 1.25rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--code-text);
+  tab-size: 4;
+}
+
+.footer {
+  border-top: 1px solid var(--border);
+  margin-top: 2rem;
+  background: var(--surface);
+}
+
+.footer-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 980px) {
+  .algo-grid, .scoreboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .two-col, .arena-grid, .algo-spec-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .algo-grid, .scoreboard {
+    grid-template-columns: 1fr;
+  }
+  .control-group.compact {
+    width: calc(50% - 0.4rem);
+  }
+}
+
+.error-banner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.86rem;
+}
+
+[data-theme="dark"] .error-banner {
+  background: rgba(220, 38, 38, 0.14);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fca5a5;
+}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark">GWO</span>
+        <div>
+          <div class="brand-title">Grey Wolf Optimization Lab</div>
+          <div class="brand-sub">4-Variant Ablation &amp; 12-Problem Benchmark</div>
+        </div>
+      </div>
+
+      <nav class="nav" role="tablist">
+        <button class="nav-btn active" data-view="compare">Comparison</button>
+        <button class="nav-btn" data-view="suite">12-Problem Suite</button>
+        <button class="nav-btn" data-view="arena">2D Swarm View</button>
+        <button class="nav-btn" data-view="algorithms">Algorithms &amp; Code</button>
+      </nav>
+
+      <button class="icon-btn" id="themeToggle" title="Toggle light / dark mode" aria-label="Toggle theme">
+        <span id="themeLabel">Dark</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="error-banner hidden" id="errorBanner"></div>
+
+    <!-- Shared Experiment Control Bar -->
+    <section class="control-bar">
+      <div class="control-group grow" id="problemControlWrap">
+        <label for="problemSelect">Problem</label>
+        <select id="problemSelect"></select>
+      </div>
+
+      <div class="control-group grow hidden" id="benchmark2dWrap">
+        <label for="benchmark2dSelect">2D Surface</label>
+        <select id="benchmark2dSelect"></select>
+      </div>
+
+      <div class="control-group compact">
+        <label for="nAgents">Pack Size (N)</label>
+        <input type="number" id="nAgents" value="20" min="6" max="50" step="2" />
+      </div>
+
+      <div class="control-group compact">
+        <label for="maxIter">Iterations (T)</label>
+        <input type="number" id="maxIter" value="40" min="10" max="120" step="5" />
+      </div>
+
+      <div class="control-group compact">
+        <label for="seedInput">Seed</label>
+        <input type="number" id="seedInput" value="42" min="0" max="99999" />
+      </div>
+
+      <button class="btn-primary" id="runBtn">Run Comparison</button>
+    </section>
+
+    <!-- VIEW 1: SINGLE-PROBLEM COMPARISON -->
+    <section id="view-compare" class="view active">
+      <div class="problem-banner" id="problemBanner">
+        <div>
+          <div class="meta-line">
+            <span class="tag" id="probModeTag">MAXIMIZE</span>
+            <span class="tag muted" id="probCatTag">Combinatorial</span>
+            <span class="mono small" id="probDimTag">20D</span>
+          </div>
+          <h1 id="probTitle">0/1 Knapsack (20 Items)</h1>
+          <p id="probDesc"></p>
+        </div>
+        <div class="banner-stat" id="winnerSummary"></div>
+      </div>
+
+      <!-- 4 Algorithm Result Cards with Individual "Show Code" Buttons -->
+      <div class="algo-grid" id="algoCards"></div>
+
+      <!-- Charts Row -->
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Convergence Curve</h2>
+            <span class="muted-text" id="convDirectionHint">Higher is better</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="convCanvas" width="640" height="300"></canvas>
+          </div>
+          <div class="legend" id="convLegend"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Convergence Factor a(t) &amp; Diversity</h2>
+            <div class="segmented" id="auxChartToggle">
+              <button class="seg-btn active" data-mode="a_curve">Factor a(t)</button>
+              <button class="seg-btn" data-mode="diversity">Diversity</button>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="auxCanvas" width="640" height="300"></canvas>
+          </div>
+          <div class="legend" id="auxLegend"></div>
+        </div>
+      </div>
+
+      <!-- Domain Solution + Initial Population Audit Row -->
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Solution Breakdown</h2>
+            <select id="solutionAlgoSelect" class="inline-select"></select>
+          </div>
+          <div id="domainVisualizer"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Initial Population Column-Best Audit (t = 0)</h2>
+            <span class="mono small" id="initAnchorLabel">Pass 1 Boxes</span>
+          </div>
+          <p class="panel-note">
+            Checks the best min/max value across every column (x1..xd and f(x)). Wolves holding the most column bests are chosen sequentially as Alpha, Beta, and Delta.
+          </p>
+          <div class="table-scroll">
+            <table class="data-table" id="auditTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Wolf</th>
+                  <th>Role</th>
+                  <th>Boxed Cols</th>
+                  <th>Won Columns</th>
+                  <th>Fitness</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: 12-PROBLEM BENCHMARK SUITE -->
+    <section id="view-suite" class="view">
+      <div class="section-head">
+        <div>
+          <h1>12-Problem Benchmark Suite</h1>
+          <p>Compares all 4 GWO variants across 6 maximization and 6 minimization problems (Knapsack, TSP, Network Flow, Cloud VM, Bin Packing, Portfolio, Facility Location, Max-Cut, Hybrid IR, Rastrigin, Ackley, Rosenbrock).</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn-secondary" id="exportCsvBtn">Export CSV</button>
+          <button class="btn-primary" id="runSuiteBtn">Run All 12 Problems</button>
+        </div>
+      </div>
+
+      <div class="scoreboard" id="suiteScoreboard"></div>
+
+      <div class="panel">
+        <div class="table-scroll">
+          <table class="data-table" id="suiteTable">
+            <thead>
+              <tr>
+                <th>Problem</th>
+                <th>Goal</th>
+                <th>Dim</th>
+                <th>Original GWO</th>
+                <th>Non-Linear a</th>
+                <th>Dual-Criteria</th>
+                <th>Combined</th>
+                <th>Winner</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: LIVE 2D SWARM VISUALIZER -->
+    <section id="view-arena" class="view">
+      <div class="section-head">
+        <div>
+          <h1>2D Swarm Working Visualizer</h1>
+          <p>Watch all 4 GWO algorithms search the exact same 2D surface side-by-side. White diamonds mark the Alpha leader; the crosshair marks the global optimum.</p>
+        </div>
+        <div class="playback-controls">
+          <button class="btn-primary" id="playPauseBtn">Play</button>
+          <button class="btn-secondary" id="resetAnimBtn">Reset</button>
+          <input type="range" id="iterSlider" min="0" max="34" value="0" />
+          <span class="mono small" id="iterReadout">Iter 1 / 35</span>
+        </div>
+      </div>
+
+      <div class="arena-grid" id="arenaGrid"></div>
+    </section>
+
+    <!-- VIEW 4: ALGORITHMS & CODE -->
+    <section id="view-algorithms" class="view">
+      <div class="section-head">
+        <div>
+          <h1>4 GWO Algorithm Variants</h1>
+          <p>Click <strong>Show Code</strong> on any variant to inspect its exact Python implementation used by the solver.</p>
+        </div>
+      </div>
+
+      <div class="algo-spec-grid" id="algoSpecGrid"></div>
+    </section>
+  </main>
+
+  <!-- Clean Single-Algorithm Code Modal -->
+  <div class="modal-backdrop hidden" id="codeModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-head">
+        <div>
+          <span class="mono small muted-text" id="modalFile">optimizers/gwo_original.py</span>
+          <h3 id="modalTitle">Original GWO</h3>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-secondary small-btn" id="copyCodeBtn">Copy</button>
+          <button class="btn-secondary small-btn" id="closeModalBtn">Close</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <pre class="code-block"><code id="codeContent"></code></pre>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <span>GWO Metaheuristics Lab &middot; Course 23B61CA413</span>
+      <span class="mono small">FastAPI + NumPy &middot; Vercel Ready</span>
+    </div>
+  </footer>
+
+  <script>
+const COLORS = {
+  original_gwo: "#dc2626",
+  nonlinear_a_gwo: "#2563eb",
+  dual_criteria_gwo: "#d97706",
+  hybrid_gwo: "#059669",
+};
+
+const state = {
+  meta: null,
+  activeView: "compare",
+  lastRun: null,
+  auxMode: "a_curve",
+  suiteData: null,
+  arenaData: null,
+  arenaIter: 0,
+  arenaTimer: null,
+  codeCache: {},
+  currentModalSource: "",
+};
+
+const $ = (id) => document.getElementById(id);
+
+function getParams() {
+  return {
+    n_agents: Math.max(6, Math.min(50, Number($("nAgents").value) || 20)),
+    max_iter: Math.max(10, Math.min(120, Number($("maxIter").value) || 40)),
+    seed: Number($("seedInput").value) || 42,
+  };
+}
+
+function showError(msg) {
+  const el = $("errorBanner");
+  el.textContent = msg;
+  el.classList.remove("hidden");
+}
+
+function clearError() {
+  $("errorBanner").classList.add("hidden");
+}
+
+function themeColor(varName) {
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+}
+
+async function fetchJson(url, opts = {}) {
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`API ${url} failed (${res.status})${txt ? ": " + txt.slice(0, 140) : ""}`);
+  }
+  clearError();
+  return res.json();
+}
+
+// =========================================================================
+// Theme & Navigation
+// =========================================================================
+function initNavigation() {
+  document.querySelectorAll(".nav-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = btn.dataset.view;
+      state.activeView = target;
+      document.querySelectorAll(".nav-btn").forEach((b) => b.classList.toggle("active", b === btn));
+      document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${target}`));
+
+      $("problemControlWrap").classList.toggle("hidden", target === "arena" || target === "suite" || target === "algorithms");
+      $("benchmark2dWrap").classList.toggle("hidden", target !== "arena");
+      $("runBtn").textContent =
+        target === "suite" ? "Run 12 Problems" :
+        target === "arena" ? "Run 2D Swarm" : "Run Comparison";
+
+      if (target === "suite" && !state.suiteData) runSuite();
+      if (target === "arena" && !state.arenaData) runArena2D();
+    });
+  });
+
+  $("themeToggle").addEventListener("click", () => {
+    const html = document.documentElement;
+    const next = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    html.setAttribute("data-theme", next);
+    $("themeLabel").textContent = next === "dark" ? "Light" : "Dark";
+    if (state.lastRun) {
+      drawLineChart($("convCanvas"), state.lastRun.results, "convergence_curve");
+      drawAuxChart();
+      renderDomainSolution();
+    }
+    if (state.arenaData) renderArenaFrame(state.arenaIter);
+  });
+
+  $("runBtn").addEventListener("click", () => {
+    if (state.activeView === "suite") runSuite();
+    else if (state.activeView === "arena") runArena2D();
+    else runComparison();
+  });
+
+  $("runSuiteBtn").addEventListener("click", runSuite);
+  $("exportCsvBtn").addEventListener("click", exportSuiteCsv);
+
+  document.querySelectorAll("#auxChartToggle .seg-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.auxMode = btn.dataset.mode;
+      document.querySelectorAll("#auxChartToggle .seg-btn").forEach((b) => b.classList.toggle("active", b === btn));
+      drawAuxChart();
+    });
+  });
+
+  $("solutionAlgoSelect").addEventListener("change", renderDomainSolution);
+  $("problemSelect").addEventListener("change", runComparison);
+  $("benchmark2dSelect").addEventListener("change", runArena2D);
+
+  // Code Modal
+  $("closeModalBtn").addEventListener("click", closeCodeModal);
+  $("codeModal").addEventListener("click", (e) => {
+    if (e.target === $("codeModal")) closeCodeModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeCodeModal();
+  });
+  $("copyCodeBtn").addEventListener("click", async () => {
+    await navigator.clipboard.writeText(state.currentModalSource);
+    $("copyCodeBtn").textContent = "Copied";
+    setTimeout(() => ($("copyCodeBtn").textContent = "Copy"), 1200);
+  });
+
+  // 2D Arena Playback
+  $("playPauseBtn").addEventListener("click", toggleArenaPlay);
+  $("resetAnimBtn").addEventListener("click", () => {
+    stopArenaPlay();
+    state.arenaIter = 0;
+    $("iterSlider").value = 0;
+    renderArenaFrame(0);
+  });
+  $("iterSlider").addEventListener("input", (e) => {
+    stopArenaPlay();
+    state.arenaIter = Number(e.target.value);
+    renderArenaFrame(state.arenaIter);
+  });
+}
+
+// =========================================================================
+// Show Code Modal (Shows ONLY the clicked algorithm's clean Python code)
+// =========================================================================
+async function openCodeModal(algoId) {
+  if (!state.codeCache[algoId]) {
+    state.codeCache[algoId] = await fetchJson(`/api/code/${algoId}`);
+  }
+  const data = state.codeCache[algoId];
+  state.currentModalSource = data.source;
+  $("modalTitle").textContent = `${data.code} — ${data.name}`;
+  $("modalFile").textContent = data.filename;
+  $("codeContent").textContent = data.source;
+  $("codeModal").classList.remove("hidden");
+}
+
+function closeCodeModal() {
+  $("codeModal").classList.add("hidden");
+}
+
+// =========================================================================
+// Lightweight High-DPI Line Chart (Zero external chart bloat)
+// =========================================================================
+function drawLineChart(canvas, seriesList, fieldKey) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth || 600;
+  const h = 280;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+
+  const pad = { top: 18, right: 18, bottom: 32, left: 58 };
+  const plotW = w - pad.left - pad.right;
+  const plotH = h - pad.top - pad.bottom;
+
+  ctx.clearRect(0, 0, w, h);
+
+  const allVals = seriesList.flatMap((s) => s[fieldKey]);
+  let minV = Math.min(...allVals);
+  let maxV = Math.max(...allVals);
+  if (Math.abs(maxV - minV) < 1e-9) {
+    minV -= 1;
+    maxV += 1;
+  } else {
+    const margin = (maxV - minV) * 0.08;
+    minV -= margin;
+    maxV += margin;
+  }
+
+  const gridColor = themeColor("--border");
+  const textColor = themeColor("--text-muted");
+
+  ctx.strokeStyle = gridColor;
+  ctx.fillStyle = textColor;
+  ctx.font = '11px "IBM Plex Mono", monospace';
+  ctx.lineWidth = 1;
+
+  for (let i = 0; i <= 4; i++) {
+    const frac = i / 4;
+    const y = pad.top + frac * plotH;
+    const val = maxV - frac * (maxV - minV);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(w - pad.right, y);
+    ctx.stroke();
+
+    const label = Math.abs(val) >= 100 ? val.toFixed(0) : Math.abs(val) >= 1 ? val.toFixed(2) : val.toFixed(4);
+    ctx.textAlign = "right";
+    ctx.fillText(label, pad.left - 8, y + 4);
+  }
+
+  const maxLen = Math.max(...seriesList.map((s) => s[fieldKey].length));
+  ctx.textAlign = "center";
+  [0, Math.floor((maxLen - 1) / 2), maxLen - 1].forEach((idx) => {
+    const x = pad.left + (idx / Math.max(1, maxLen - 1)) * plotW;
+    ctx.fillText(`t=${idx + 1}`, x, h - 10);
+  });
+
+  seriesList.forEach((s) => {
+    const arr = s[fieldKey];
+    ctx.strokeStyle = COLORS[s.id];
+    ctx.lineWidth = s.id === "hybrid_gwo" ? 2.6 : 1.9;
+    ctx.beginPath();
+    arr.forEach((v, i) => {
+      const x = pad.left + (i / Math.max(1, arr.length - 1)) * plotW;
+      const y = pad.top + ((maxV - v) / (maxV - minV)) * plotH;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  });
+}
+
+function renderLegend(container, results) {
+  container.innerHTML = results
+    .map(
+      (r) =>
+        `<span class="legend-item"><span class="swatch" style="background:${COLORS[r.id]}"></span>${r.name}</span>`
+    )
+    .join("");
+}
+
+function drawAuxChart() {
+  if (!state.lastRun) return;
+  const field = state.auxMode === "a_curve" ? "a_curve" : "diversity_curve";
+  drawLineChart($("auxCanvas"), state.lastRun.results, field);
+  renderLegend($("auxLegend"), state.lastRun.results);
+}
+
+// =========================================================================
+// View 1: Single Problem Comparison
+// =========================================================================
+async function runComparison() {
+  const btn = $("runBtn");
+  btn.disabled = true;
+  try {
+    const params = getParams();
+    const data = await fetchJson("/api/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ problem_id: $("problemSelect").value, ...params }),
+    });
+    state.lastRun = data;
+    renderComparison(data);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderComparison(data) {
+  const p = data.problem;
+  $("probTitle").textContent = p.name;
+  $("probDesc").textContent = p.description;
+  $("probModeTag").textContent = p.mode === "max" ? "MAXIMIZE" : "MINIMIZE";
+  $("probCatTag").textContent = p.category;
+  $("probDimTag").textContent = `${p.dim}D`;
+  $("convDirectionHint").textContent = p.mode === "max" ? "Higher is better" : "Lower is better";
+
+  const winner = data.results.find((r) => r.is_winner);
+  $("winnerSummary").textContent = `Best: ${winner.name} (${winner.best_fitness})`;
+
+  $("algoCards").innerHTML = data.results
+    .map((r) => {
+      const deltaClass = r.delta_vs_original_pct > 0 ? "pos-delta" : r.delta_vs_original_pct < 0 ? "neg-delta" : "";
+      const deltaText =
+        r.id === "original_gwo"
+          ? "Baseline"
+          : `${r.delta_vs_original_pct >= 0 ? "+" : ""}${r.delta_vs_original_pct}% vs Orig`;
+      return `
+        <div class="algo-card ${r.is_winner ? "winner" : ""}">
+          <div>
+            <div class="algo-card-top">
+              <span class="algo-badge">
+                <span class="swatch" style="background:${COLORS[r.id]}"></span>${r.code}
+              </span>
+              ${r.is_winner ? '<span class="win-label">Best</span>' : ""}
+            </div>
+            <h3>${r.name}</h3>
+            <div class="algo-meta">a: ${r.a_type} &middot; ${r.leader_type}</div>
+          </div>
+
+          <div>
+            <div class="metric-val">${r.best_fitness}</div>
+            <div class="metric-sub">
+              <span class="${deltaClass}">${deltaText}</span>
+              <span class="mono">t=${r.convergence_iter} &middot; ${r.runtime_ms}ms</span>
+            </div>
+          </div>
+
+          <div class="algo-card-foot">
+            <span class="muted-text small">${p.unit}</span>
+            <button class="btn-secondary small-btn show-code-btn" data-algo="${r.id}">Show Code</button>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  document.querySelectorAll(".show-code-btn").forEach((b) => {
+    b.addEventListener("click", () => openCodeModal(b.dataset.algo));
+  });
+
+  drawLineChart($("convCanvas"), data.results, "convergence_curve");
+  renderLegend($("convLegend"), data.results);
+  drawAuxChart();
+
+  // Solution algorithm dropdown
+  const sel = $("solutionAlgoSelect");
+  const prev = sel.value;
+  sel.innerHTML = data.results.map((r) => `<option value="${r.id}">${r.name}</option>`).join("");
+  sel.value = prev && data.results.some((r) => r.id === prev) ? prev : data.winner_id;
+  renderDomainSolution();
+
+  // Initial Population Column-Best Audit
+  const auditSource = data.results.find((r) => r.id === "dual_criteria_gwo") || data.results.find((r) => r.id === "hybrid_gwo");
+  if (auditSource && auditSource.initial_pop_audit.length) {
+    $("initAnchorLabel").textContent = `${data.problem.dim + 1} Columns Checked`;
+    $("auditTable").querySelector("tbody").innerHTML = auditSource.initial_pop_audit
+      .map((row) => {
+        const cls =
+          row.role === "Alpha" ? "role-alpha" :
+          row.role === "Beta" ? "role-beta" :
+          row.role === "Delta" ? "role-delta" : "role-omega";
+        return `
+          <tr>
+            <td class="mono">${row.rank}</td>
+            <td class="mono">${row.wolf}</td>
+            <td><span class="role-pill ${cls}">${row.role}</span></td>
+            <td class="mono">${row.boxes}</td>
+            <td class="mono small">${row.won_cols}</td>
+            <td class="mono">${row.fitness}</td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
+}
+
+function renderDomainSolution() {
+  if (!state.lastRun) return;
+  const aid = $("solutionAlgoSelect").value;
+  const res = state.lastRun.results.find((r) => r.id === aid);
+  if (!res) return;
+  const dec = res.decoded;
+  const box = $("domainVisualizer");
+
+  if (dec.type === "knapsack") {
+    box.innerHTML = `
+      <div class="kv-grid">
+        <div class="kv-item"><div class="kv-label">Packed Value</div><div class="kv-val">${dec.total_value}</div></div>
+        <div class="kv-item"><div class="kv-label">Weight / Capacity</div><div class="kv-val">${dec.total_weight} / ${dec.capacity} kg</div></div>
+        <div class="kv-item"><div class="kv-label">Items Picked</div><div class="kv-val">${dec.selected_count} / ${dec.items.length}</div></div>
+        <div class="kv-item"><div class="kv-label">Constraint</div><div class="kv-val">${dec.feasible ? "Feasible" : "Exceeded"}</div></div>
+      </div>
+      <div class="knap-grid">
+        ${dec.items
+          .map(
+            (it) =>
+              `<div class="knap-cell ${it.picked ? "picked" : ""}">#${it.id}<br/>${it.value} / ${it.weight}kg</div>`
+          )
+          .join("")}
+      </div>
+    `;
+  } else if (dec.type === "tsp") {
+    box.innerHTML = `
+      <div class="kv-grid" style="margin-bottom:0.75rem;">
+        <div class="kv-item"><div class="kv-label">Tour Length</div><div class="kv-val">${dec.tour_length} km</div></div>
+        <div class="kv-item"><div class="kv-label">Cities Visited</div><div class="kv-val">${dec.tour.length}</div></div>
+      </div>
+      <canvas id="tspCanvas" width="520" height="230" style="width:100%;border:1px solid var(--border);border-radius:7px;"></canvas>
+    `;
+    const c = $("tspCanvas");
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, c.width, c.height);
+    const pad = 24;
+    const mapX = (x) => pad + (x / 100) * (c.width - 2 * pad);
+    const mapY = (y) => c.height - pad - (y / 100) * (c.height - 2 * pad);
+
+    ctx.strokeStyle = COLORS[aid];
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    dec.tour.forEach((cityIdx, idx) => {
+      const [cx, cy] = dec.coords[cityIdx];
+      if (idx === 0) ctx.moveTo(mapX(cx), mapY(cy));
+      else ctx.lineTo(mapX(cx), mapY(cy));
+    });
+    const [sx, sy] = dec.coords[dec.tour[0]];
+    ctx.lineTo(mapX(sx), mapY(sy));
+    ctx.stroke();
+
+    ctx.fillStyle = themeColor("--text");
+    dec.coords.forEach(([cx, cy]) => {
+      ctx.beginPath();
+      ctx.arc(mapX(cx), mapY(cy), 4.2, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  } else if (dec.type === "facility") {
+    box.innerHTML = `
+      <div class="kv-grid" style="margin-bottom:0.75rem;">
+        <div class="kv-item"><div class="kv-label">Demand Covered</div><div class="kv-val">${dec.covered_pct}%</div></div>
+        <div class="kv-item"><div class="kv-label">Service Radius</div><div class="kv-val">${dec.radius} km</div></div>
+      </div>
+      <canvas id="facCanvas" width="520" height="230" style="width:100%;border:1px solid var(--border);border-radius:7px;"></canvas>
+    `;
+    const c = $("facCanvas");
+    const ctx = c.getContext("2d");
+    const pad = 20;
+    const mapX = (x) => pad + (x / 100) * (c.width - 2 * pad);
+    const mapY = (y) => c.height - pad - (y / 100) * (c.height - 2 * pad);
+
+    ctx.fillStyle = themeColor("--text-muted");
+    dec.zones.forEach(([zx, zy], idx) => {
+      ctx.beginPath();
+      ctx.arc(mapX(zx), mapY(zy), 2.5 + dec.demands[idx] * 0.04, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    dec.hubs.forEach(([hx, hy]) => {
+      ctx.strokeStyle = COLORS[aid];
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(mapX(hx), mapY(hy), (dec.radius / 100) * (c.height - 2 * pad), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = COLORS[aid];
+      ctx.fillRect(mapX(hx) - 5, mapY(hy) - 5, 10, 10);
+    });
+  } else {
+    const entries = Object.entries(dec).filter(([k]) => k !== "type");
+    box.innerHTML = `<div class="kv-grid">${entries
+      .map(([k, v]) => `<div class="kv-item"><div class="kv-label">${k}</div><div class="kv-val">${v}</div></div>`)
+      .join("")}</div>`;
+  }
+}
+
+// =========================================================================
+// View 2: 12-Problem Benchmark Suite
+// =========================================================================
+async function runSuite() {
+  const btn = $("runSuiteBtn");
+  btn.disabled = true;
+  $("runBtn").disabled = true;
+  try {
+    const params = getParams();
+    const data = await fetchJson("/api/suite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+    state.suiteData = data;
+    renderSuite(data);
+  } finally {
+    btn.disabled = false;
+    $("runBtn").disabled = false;
+  }
+}
+
+function renderSuite(data) {
+  $("suiteScoreboard").innerHTML = state.meta.algorithms
+    .map((a) => {
+      const wins = data.wins[a.id] || 0;
+      const avgD = data.avg_delta_vs_original[a.id];
+      const deltaTxt = a.id === "original_gwo" ? "Baseline" : `Avg ${avgD >= 0 ? "+" : ""}${avgD}% vs Orig`;
+      return `
+        <div class="score-tile">
+          <div class="tile-title"><span class="swatch" style="background:${COLORS[a.id]}"></span>${a.name}</div>
+          <div class="tile-wins">${wins} / ${data.total_problems} Wins</div>
+          <div class="tile-delta mono">${deltaTxt}</div>
+        </div>
+      `;
+    })
+    .join("");
+
+  $("suiteTable").querySelector("tbody").innerHTML = data.rows
+    .map(
+      (r) => `
+      <tr>
+        <td><strong>${r.problem}</strong><br/><span class="muted-text small">${r.category}</span></td>
+        <td><span class="tag ${r.mode === "min" ? "muted" : ""}">${r.mode === "max" ? "MAX" : "MIN"}</span></td>
+        <td class="mono">${r.dim}D</td>
+        <td class="mono">${r.scores.original_gwo}</td>
+        <td class="mono">${r.scores.nonlinear_a_gwo}</td>
+        <td class="mono">${r.scores.dual_criteria_gwo}</td>
+        <td class="mono">${r.scores.hybrid_gwo}</td>
+        <td><span class="win-label">${r.winner_name}</span></td>
+      </tr>
+    `
+    )
+    .join("");
+}
+
+function exportSuiteCsv() {
+  if (!state.suiteData) return;
+  const header = ["Problem", "Category", "Mode", "Dim", "Original GWO", "Non-Linear a GWO", "Dual-Criteria GWO", "Combined GWO", "Winner"];
+  const lines = [header.join(",")];
+  state.suiteData.rows.forEach((r) => {
+    lines.push([
+      `"${r.problem}"`, r.category, r.mode, r.dim,
+      r.scores.original_gwo, r.scores.nonlinear_a_gwo, r.scores.dual_criteria_gwo, r.scores.hybrid_gwo,
+      `"${r.winner_name}"`,
+    ].join(","));
+  });
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "gwo_12_problem_benchmark.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// =========================================================================
+// View 3: 2D Live Swarm Visualizer (HTML5 Canvas)
+// =========================================================================
+async function runArena2D() {
+  stopArenaPlay();
+  $("runBtn").disabled = true;
+  try {
+    const params = getParams();
+    const data = await fetchJson("/api/arena2d", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        benchmark_id: $("benchmark2dSelect").value,
+        n_agents: params.n_agents,
+        max_iter: Math.min(params.max_iter, 70),
+        seed: params.seed,
+      }),
+    });
+    state.arenaData = data;
+    state.arenaIter = 0;
+    $("iterSlider").max = data.max_iter - 1;
+    $("iterSlider").value = 0;
+
+    $("arenaGrid").innerHTML = data.runs
+      .map(
+        (r) => `
+        <div class="arena-card">
+          <div class="arena-card-head">
+            <span class="algo-badge"><span class="swatch" style="background:${COLORS[r.id]}"></span><strong>${r.name}</strong></span>
+            <span class="mono small" id="arena-fit-${r.id}">f = ${r.convergence_curve[0]}</span>
+          </div>
+          <canvas id="arena-canvas-${r.id}" width="440" height="280"></canvas>
+        </div>
+      `
+      )
+      .join("");
+
+    renderArenaFrame(0);
+  } finally {
+    $("runBtn").disabled = false;
+  }
+}
+
+function renderArenaFrame(iter) {
+  if (!state.arenaData) return;
+  const bm = state.arenaData.benchmark;
+  const grid = bm.grid;
+  const rows = grid.length;
+  const cols = grid[0].length;
+  $("iterReadout").textContent = `Iter ${iter + 1} / ${state.arenaData.max_iter}`;
+
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+
+  state.arenaData.runs.forEach((run) => {
+    const c = $(`arena-canvas-${run.id}`);
+    if (!c) return;
+    const ctx = c.getContext("2d");
+    const w = c.width;
+    const h = c.height;
+    const cellW = w / cols;
+    const cellH = h / rows;
+
+    // Subtle grayscale/slate topographic contour shading
+    const span = Math.max(1e-6, bm.z_max - bm.z_min);
+    for (let r = 0; r < rows; r++) {
+      for (let col = 0; col < cols; col++) {
+        const norm = Math.sqrt((grid[r][col] - bm.z_min) / span);
+        const shade = isDark ? Math.round(18 + norm * 52) : Math.round(245 - norm * 65);
+        ctx.fillStyle = `rgb(${shade}, ${shade + 4}, ${shade + 10})`;
+        ctx.fillRect(col * cellW, (rows - 1 - r) * cellH, cellW + 0.6, cellH + 0.6);
+      }
+    }
+
+    const toX = (x) => ((x - bm.lb) / (bm.ub - bm.lb)) * w;
+    const toY = (y) => h - ((y - bm.lb) / (bm.ub - bm.lb)) * h;
+
+    // Global Optimum Crosshair
+    const ox = toX(bm.optimum[0]);
+    const oy = toY(bm.optimum[1]);
+    ctx.strokeStyle = isDark ? "#facc15" : "#111827";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(ox - 7, oy); ctx.lineTo(ox + 7, oy);
+    ctx.moveTo(ox, oy - 7); ctx.lineTo(ox, oy + 7);
+    ctx.stroke();
+
+    // Wolf Pack Agents
+    const pts = run.trajectories[iter] || [];
+    ctx.fillStyle = COLORS[run.id];
+    pts.forEach(([px, py]) => {
+      ctx.beginPath();
+      ctx.arc(toX(px), toY(py), 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Alpha Leader Diamond
+    const alpha = (run.leaders[iter] || [])[0];
+    if (alpha) {
+      const ax = toX(alpha[0]);
+      const ay = toY(alpha[1]);
+      ctx.fillStyle = "#ffffff";
+      ctx.strokeStyle = COLORS[run.id];
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(ax, ay - 7);
+      ctx.lineTo(ax + 7, ay);
+      ctx.lineTo(ax, ay + 7);
+      ctx.lineTo(ax - 7, ay);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    const fitEl = $(`arena-fit-${run.id}`);
+    if (fitEl) fitEl.textContent = `f = ${run.convergence_curve[iter]} · a = ${run.a_curve[iter]}`;
+  });
+}
+
+function toggleArenaPlay() {
+  if (!state.arenaData) return;
+  if (state.arenaTimer) {
+    stopArenaPlay();
+    return;
+  }
+  $("playPauseBtn").textContent = "Pause";
+  state.arenaTimer = setInterval(() => {
+    state.arenaIter = (state.arenaIter + 1) % state.arenaData.max_iter;
+    $("iterSlider").value = state.arenaIter;
+    renderArenaFrame(state.arenaIter);
+    if (state.arenaIter === state.arenaData.max_iter - 1) stopArenaPlay();
+  }, 160);
+}
+
+function stopArenaPlay() {
+  if (state.arenaTimer) {
+    clearInterval(state.arenaTimer);
+    state.arenaTimer = null;
+  }
+  $("playPauseBtn").textContent = "Play";
+}
+
+// =========================================================================
+// View 4: Algorithms & Code Specs
+// =========================================================================
+function renderAlgorithmSpecs() {
+  $("algoSpecGrid").innerHTML = state.meta.algorithms
+    .map(
+      (a) => `
+      <div class="spec-card">
+        <div>
+          <span class="algo-badge"><span class="swatch" style="background:${COLORS[a.id]}"></span>${a.code}</span>
+          <h3>${a.name}</h3>
+          <p>${a.summary}</p>
+        </div>
+        <div class="spec-pills">
+          <span class="tag">Convergence a(t): ${a.a_type}</span>
+          <span class="tag muted">Leaders: ${a.leader_type}</span>
+        </div>
+        <div class="spec-footer">
+          <span class="mono small muted-text">Python implementation</span>
+          <button class="btn-primary small-btn spec-code-btn" data-algo="${a.id}">Show Code</button>
+        </div>
+      </div>
+    `
+    )
+    .join("");
+
+  document.querySelectorAll(".spec-code-btn").forEach((b) => {
+    b.addEventListener("click", () => openCodeModal(b.dataset.algo));
+  });
+}
+
+// =========================================================================
+// Bootstrap
+// =========================================================================
+async function bootstrap() {
+  initNavigation();
+  try {
+    state.meta = await fetchJson("/api/meta");
+
+    $("problemSelect").innerHTML = state.meta.problems
+      .map((p) => `<option value="${p.id}">[${p.mode.toUpperCase()}] ${p.name}</option>`)
+      .join("");
+
+    $("benchmark2dSelect").innerHTML = state.meta.benchmarks_2d
+      .map((b) => `<option value="${b.id}">${b.name} (2D)</option>`)
+      .join("");
+
+    renderAlgorithmSpecs();
+    await runComparison();
+  } catch (err) {
+    showError(`Could not reach Python API backend: ${err.message}. Verify main.py and vercel.json are at the repository root.`);
+  }
+}
+
+bootstrap();
+  </script>
+</body>
+</html>
