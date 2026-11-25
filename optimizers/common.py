@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional
+from typing import Dict, List
 import numpy as np
 
 
@@ -16,7 +16,6 @@ class RunResult:
     trajectory_history: List[List[List[float]]] = field(default_factory=list)
     leaders_history: List[List[List[float]]] = field(default_factory=list)
     initial_pop_audit: List[Dict] = field(default_factory=list)
-    init_best_pop_value: Optional[float] = None
     runtime_ms: float = 0.0
     convergence_iter: int = 0
 
@@ -39,17 +38,3 @@ def convergence_iteration(curve: List[float], mode: str) -> int:
         return next((i for i, v in enumerate(curve) if v <= target), len(curve) - 1)
     target = final_f - 0.05 * max(0.0, final_f - init_f)
     return next((i for i, v in enumerate(curve) if v >= target), len(curve) - 1)
-
-
-def rank_normalize(values: np.ndarray, mode: str) -> np.ndarray:
-    n = len(values)
-    if n <= 1:
-        return np.ones(n, dtype=float)
-    order = np.argsort(values) if mode == "min" else np.argsort(values)[::-1]
-    ranks = np.empty(n, dtype=float)
-    ranks[order] = np.linspace(1.0, 0.0, n)
-    return ranks
-
-
-def default_pop_value(x: np.ndarray) -> float:
-    return float(np.mean(x))
