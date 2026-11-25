@@ -857,6 +857,47 @@ select:focus {
   border-color: rgba(248, 113, 113, 0.35);
   color: #fca5a5;
 }
+
+.tie-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #b45309;
+  background: #fef3c7;
+  padding: 0.14rem 0.45rem;
+  border-radius: 4px;
+}
+
+[data-theme="dark"] .tie-label {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.15);
+}
+
+.algo-card.tied {
+  border-color: #d97706;
+}
+
+.banner-stat.tie-banner {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+[data-theme="dark"] .banner-stat.tie-banner {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+
+.scoreboard.five-col {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 1080px) {
+  .scoreboard.five-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
   </style>
 </head>
 <body>
@@ -974,11 +1015,11 @@ select:focus {
 
         <div class="panel">
           <div class="panel-head">
-            <h2>Initial Population Column-Best Audit (t = 0)</h2>
-            <span class="mono small" id="initAnchorLabel">Pass 1 Boxes</span>
+            <h2>Step 1: Top-3 Column-Tier Audit (t = 0)</h2>
+            <span class="mono small" id="initAnchorLabel">All Columns Ranked</span>
           </div>
           <p class="panel-note">
-            Checks the best min/max value across every column (x1..xd and f(x)). Wolves holding the most column bests are chosen sequentially as Alpha, Beta, and Delta.
+            Ranks the 1st, 2nd, and 3rd best values independently in every column (x1..xd and f(x)). Alpha, Beta, and Delta are assigned by majority count of 1st, 2nd, and 3rd tier tags while preserving full rows.
           </p>
           <div class="table-scroll">
             <table class="data-table" id="auditTable">
@@ -987,8 +1028,9 @@ select:focus {
                   <th>#</th>
                   <th>Wolf</th>
                   <th>Role</th>
-                  <th>Boxed Cols</th>
-                  <th>Won Columns</th>
+                  <th>① Count</th>
+                  <th>② Count</th>
+                  <th>③ Count</th>
                   <th>Fitness</th>
                 </tr>
               </thead>
@@ -1012,7 +1054,7 @@ select:focus {
         </div>
       </div>
 
-      <div class="scoreboard" id="suiteScoreboard"></div>
+      <div class="scoreboard five-col" id="suiteScoreboard"></div>
 
       <div class="panel">
         <div class="table-scroll">
@@ -1027,6 +1069,7 @@ select:focus {
                 <th>Dual-Criteria</th>
                 <th>Combined</th>
                 <th>Winner</th>
+                <th>Tied Algorithms</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -1370,8 +1413,16 @@ function renderComparison(data) {
   $("probDimTag").textContent = `${p.dim}D`;
   $("convDirectionHint").textContent = p.mode === "max" ? "Higher is better" : "Lower is better";
 
-  const winner = data.results.find((r) => r.is_winner);
-  $("winnerSummary").textContent = `Best: ${winner.name} (${winner.best_fitness})`;
+  const bannerEl = $("winnerSummary");
+  if (data.is_tie) {
+    const tiedRes = data.results.find((r) => r.is_tied);
+    bannerEl.className = "banner-stat tie-banner";
+    bannerEl.textContent = `Tie (${tiedRes.best_fitness}): ${data.tied_names.join(", ")}`;
+  } else {
+    const winner = data.results.find((r) => r.is_winner);
+    bannerEl.className = "banner-stat";
+    bannerEl.textContent = `Best: ${winner.name} (${winner.best_fitness})`;
+  }
 
   $("algoCards").innerHTML = data.results
     .map((r) => {
@@ -1380,14 +1431,18 @@ function renderComparison(data) {
         r.id === "original_gwo"
           ? "Baseline"
           : `${r.delta_vs_original_pct >= 0 ? "+" : ""}${r.delta_vs_original_pct}% vs Orig`;
+      const cardCls = r.is_winner ? "winner" : (r.is_tied ? "tied" : "");
+      const statusPill = r.is_winner
+        ? '<span class="win-label">Best</span>'
+        : (r.is_tied ? '<span class="tie-label">Tied</span>' : "");
       return `
-        <div class="algo-card ${r.is_winner ? "winner" : ""}">
+        <div class="algo-card ${cardCls}">
           <div>
             <div class="algo-card-top">
               <span class="algo-badge">
                 <span class="swatch" style="background:${COLORS[r.id]}"></span>${r.code}
               </span>
-              ${r.is_winner ? '<span class="win-label">Best</span>' : ""}
+              ${statusPill}
             </div>
             <h3>${r.name}</h3>
             <div class="algo-meta">a: ${r.a_type} &middot; ${r.leader_type}</div>
@@ -1422,13 +1477,14 @@ function renderComparison(data) {
   const sel = $("solutionAlgoSelect");
   const prev = sel.value;
   sel.innerHTML = data.results.map((r) => `<option value="${r.id}">${r.name}</option>`).join("");
-  sel.value = prev && data.results.some((r) => r.id === prev) ? prev : data.winner_id;
+  const defaultAlgo = data.winner_id || (data.tied_ids && data.tied_ids[0]) || data.results[0].id;
+  sel.value = prev && data.results.some((r) => r.id === prev) ? prev : defaultAlgo;
   renderDomainSolution();
 
-  // Initial Population Column-Best Audit
+  // Step 1 Top-3 Column-Tier Audit
   const auditSource = data.results.find((r) => r.id === "dual_criteria_gwo") || data.results.find((r) => r.id === "hybrid_gwo");
   if (auditSource && auditSource.initial_pop_audit.length) {
-    $("initAnchorLabel").textContent = `${data.problem.dim + 1} Columns Checked`;
+    $("initAnchorLabel").textContent = `${data.problem.dim + 1} Columns Ranked`;
     $("auditTable").querySelector("tbody").innerHTML = auditSource.initial_pop_audit
       .map((row) => {
         const cls =
@@ -1440,8 +1496,9 @@ function renderComparison(data) {
             <td class="mono">${row.rank}</td>
             <td class="mono">${row.wolf}</td>
             <td><span class="role-pill ${cls}">${row.role}</span></td>
-            <td class="mono">${row.boxes}</td>
-            <td class="mono small">${row.won_cols}</td>
+            <td class="mono">${row.t1} / ${row.total_cols}</td>
+            <td class="mono">${row.t2} / ${row.total_cols}</td>
+            <td class="mono">${row.t3} / ${row.total_cols}</td>
             <td class="mono">${row.fitness}</td>
           </tr>
         `;
@@ -1568,7 +1625,7 @@ async function runSuite() {
 }
 
 function renderSuite(data) {
-  $("suiteScoreboard").innerHTML = state.meta.algorithms
+  const algoTiles = state.meta.algorithms
     .map((a) => {
       const wins = data.wins[a.id] || 0;
       const avgD = data.avg_delta_vs_original[a.id];
@@ -1583,9 +1640,25 @@ function renderSuite(data) {
     })
     .join("");
 
+  const tieTile = `
+    <div class="score-tile">
+      <div class="tile-title"><span class="swatch" style="background:#d97706"></span>Ties (Unassigned)</div>
+      <div class="tile-wins">${data.ties_count} / ${data.total_problems} Ties</div>
+      <div class="tile-delta mono">Excluded from wins</div>
+    </div>
+  `;
+
+  $("suiteScoreboard").innerHTML = algoTiles + tieTile;
+
   $("suiteTable").querySelector("tbody").innerHTML = data.rows
-    .map(
-      (r) => `
+    .map((r) => {
+      const winnerCell = r.is_tie
+        ? '<span class="tie-label">Tie</span>'
+        : `<span class="win-label">${r.winner_name}</span>`;
+      const tiedCell = r.is_tie
+        ? `<span class="small">${r.tied_names.join(", ")}</span>`
+        : '<span class="muted-text">&mdash;</span>';
+      return `
       <tr>
         <td><strong>${r.problem}</strong><br/><span class="muted-text small">${r.category}</span></td>
         <td><span class="tag ${r.mode === "min" ? "muted" : ""}">${r.mode === "max" ? "MAX" : "MIN"}</span></td>
@@ -1594,22 +1667,24 @@ function renderSuite(data) {
         <td class="mono">${r.scores.nonlinear_a_gwo}</td>
         <td class="mono">${r.scores.dual_criteria_gwo}</td>
         <td class="mono">${r.scores.hybrid_gwo}</td>
-        <td><span class="win-label">${r.winner_name}</span></td>
+        <td>${winnerCell}</td>
+        <td>${tiedCell}</td>
       </tr>
-    `
-    )
+    `;
+    })
     .join("");
 }
 
 function exportSuiteCsv() {
   if (!state.suiteData) return;
-  const header = ["Problem", "Category", "Mode", "Dim", "Original GWO", "Non-Linear a GWO", "Dual-Criteria GWO", "Combined GWO", "Winner"];
+  const header = ["Problem", "Category", "Mode", "Dim", "Original GWO", "Non-Linear a GWO", "Dual-Criteria GWO", "Combined GWO", "Winner", "Tied Algorithms"];
   const lines = [header.join(",")];
   state.suiteData.rows.forEach((r) => {
+    const tiedStr = r.is_tie ? r.tied_names.join(" | ") : "";
     lines.push([
       `"${r.problem}"`, r.category, r.mode, r.dim,
       r.scores.original_gwo, r.scores.nonlinear_a_gwo, r.scores.dual_criteria_gwo, r.scores.hybrid_gwo,
-      `"${r.winner_name}"`,
+      `"${r.winner_name}"`, `"${tiedStr}"`,
     ].join(","));
   });
   const blob = new Blob([lines.join("\n")], { type: "text/csv" });
