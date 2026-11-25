@@ -6,6 +6,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+app = FastAPI(title="APEX-GWO Lab", version="2.2.0")
+
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
@@ -14,8 +16,6 @@ from optimizers import ALGORITHMS, ALGO_ORDER
 from environments.problem_suite import build_problem_suite, build_2d_benchmarks
 
 PUBLIC_DIR = os.path.join(ROOT_DIR, "public")
-
-app = FastAPI(title="GWO Metaheuristics Lab", version="2.1.0")
 
 
 class RunRequest(BaseModel):
