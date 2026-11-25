@@ -24,9 +24,18 @@ function getParams() {
   return {
     n_agents: Math.max(6, Math.min(50, Number($("nAgents").value) || 20)),
     max_iter: Math.max(10, Math.min(120, Number($("maxIter").value) || 40)),
-    pop_weight: Math.max(0.05, Math.min(0.6, Number($("popWeight").value) || 0.25)),
     seed: Number($("seedInput").value) || 42,
   };
+}
+
+function showError(msg) {
+  const el = $("errorBanner");
+  el.textContent = msg;
+  el.classList.remove("hidden");
+}
+
+function clearError() {
+  $("errorBanner").classList.add("hidden");
 }
 
 function themeColor(varName) {
@@ -35,7 +44,11 @@ function themeColor(varName) {
 
 async function fetchJson(url, opts = {}) {
   const res = await fetch(url, opts);
-  if (!res.ok) throw new Error(`Request failed (${res.status})`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`API ${url} failed (${res.status})${txt ? ": " + txt.slice(0, 140) : ""}`);
+  }
+  clearError();
   return res.json();
 }
 
@@ -317,10 +330,10 @@ function renderComparison(data) {
   sel.value = prev && data.results.some((r) => r.id === prev) ? prev : data.winner_id;
   renderDomainSolution();
 
-  // Initial Population Audit (from Combined GWO or Dual-Criteria GWO)
-  const auditSource = data.results.find((r) => r.id === "hybrid_gwo") || data.results.find((r) => r.id === "dual_criteria_gwo");
+  // Initial Population Column-Best Audit
+  const auditSource = data.results.find((r) => r.id === "dual_criteria_gwo") || data.results.find((r) => r.id === "hybrid_gwo");
   if (auditSource && auditSource.initial_pop_audit.length) {
-    $("initAnchorLabel").textContent = `Anchor P*: ${auditSource.init_best_pop_value}`;
+    $("initAnchorLabel").textContent = `${data.problem.dim + 1} Columns Checked`;
     $("auditTable").querySelector("tbody").innerHTML = auditSource.initial_pop_audit
       .map((row) => {
         const cls =
@@ -332,9 +345,9 @@ function renderComparison(data) {
             <td class="mono">${row.rank}</td>
             <td class="mono">${row.wolf}</td>
             <td><span class="role-pill ${cls}">${row.role}</span></td>
-            <td class="mono">${row.pop_value}</td>
+            <td class="mono">${row.boxes}</td>
+            <td class="mono small">${row.won_cols}</td>
             <td class="mono">${row.fitness}</td>
-            <td class="mono">${row.combined}</td>
           </tr>
         `;
       })
@@ -528,7 +541,6 @@ async function runArena2D() {
         benchmark_id: $("benchmark2dSelect").value,
         n_agents: params.n_agents,
         max_iter: Math.min(params.max_iter, 70),
-        pop_weight: params.pop_weight,
         seed: params.seed,
       }),
     });
@@ -691,18 +703,22 @@ function renderAlgorithmSpecs() {
 // =========================================================================
 async function bootstrap() {
   initNavigation();
-  state.meta = await fetchJson("/api/meta");
+  try {
+    state.meta = await fetchJson("/api/meta");
 
-  $("problemSelect").innerHTML = state.meta.problems
-    .map((p) => `<option value="${p.id}">[${p.mode.toUpperCase()}] ${p.name}</option>`)
-    .join("");
+    $("problemSelect").innerHTML = state.meta.problems
+      .map((p) => `<option value="${p.id}">[${p.mode.toUpperCase()}] ${p.name}</option>`)
+      .join("");
 
-  $("benchmark2dSelect").innerHTML = state.meta.benchmarks_2d
-    .map((b) => `<option value="${b.id}">${b.name} (2D)</option>`)
-    .join("");
+    $("benchmark2dSelect").innerHTML = state.meta.benchmarks_2d
+      .map((b) => `<option value="${b.id}">${b.name} (2D)</option>`)
+      .join("");
 
-  renderAlgorithmSpecs();
-  await runComparison();
+    renderAlgorithmSpecs();
+    await runComparison();
+  } catch (err) {
+    showError(`Could not reach Python API backend: ${err.message}. Verify api/index.py and vercel.json are at the repository root.`);
+  }
 }
 
 bootstrap();
