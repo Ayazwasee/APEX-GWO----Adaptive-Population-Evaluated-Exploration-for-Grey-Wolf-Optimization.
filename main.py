@@ -3,10 +3,10 @@ import os
 import sys
 import numpy as np
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="APEX-GWO Lab", version="2.2.0")
+app = FastAPI(title="APEX-GWO Lab", version="2.3.0")
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 if ROOT_DIR not in sys.path:
@@ -14,8 +14,6 @@ if ROOT_DIR not in sys.path:
 
 from optimizers import ALGORITHMS, ALGO_ORDER
 from environments.problem_suite import build_problem_suite, build_2d_benchmarks
-
-PUBLIC_DIR = os.path.join(ROOT_DIR, "public")
 
 
 class RunRequest(BaseModel):
@@ -41,24 +39,53 @@ class Arena2DRequest(BaseModel):
     seed: int = Field(default=42, ge=0, le=99999)
 
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 def serve_index():
-    return FileResponse(os.path.join(PUBLIC_DIR, "index.html"))
+    for candidate in (
+        os.path.join(ROOT_DIR, "index.html"),
+        os.path.join(ROOT_DIR, "public", "index.html"),
+    ):
+        if os.path.isfile(candidate):
+            with open(candidate, "r", encoding="utf-8") as f:
+                return HTMLResponse(content=f.read(), status_code=200)
+    raise HTTPException(status_code=404, detail="index.html not found at repository root or public/")
 
 
 @app.get("/styles.css")
 def serve_css():
-    return FileResponse(os.path.join(PUBLIC_DIR, "styles.css"), media_type="text/css")
+    for candidate in (
+        os.path.join(ROOT_DIR, "styles.css"),
+        os.path.join(ROOT_DIR, "public", "styles.css"),
+    ):
+        if os.path.isfile(candidate):
+            return FileResponse(candidate, media_type="text/css")
+    raise HTTPException(status_code=404, detail="styles.css not found")
 
 
 @app.get("/app.js")
 def serve_js():
-    return FileResponse(os.path.join(PUBLIC_DIR, "app.js"), media_type="application/javascript")
+    for candidate in (
+        os.path.join(ROOT_DIR, "app.js"),
+        os.path.join(ROOT_DIR, "public", "app.js"),
+    ):
+        if os.path.isfile(candidate):
+            return FileResponse(candidate, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="app.js not found")
 
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "algorithms": len(ALGO_ORDER)}
+    return {
+        "status": "ok",
+        "algorithms": len(ALGO_ORDER),
+        "index_found": any(
+            os.path.isfile(p)
+            for p in (
+                os.path.join(ROOT_DIR, "index.html"),
+                os.path.join(ROOT_DIR, "public", "index.html"),
+            )
+        ),
+    }
 
 
 @app.get("/api/meta")
@@ -103,7 +130,7 @@ def get_algorithm_code(algo_id: str):
         raise HTTPException(status_code=404, detail="Algorithm not found")
     meta = ALGORITHMS[algo_id]
     path = os.path.join(ROOT_DIR, meta["file"])
-    if os.path.exists(path):
+    if os.path.isfile(path):
         with open(path, "r", encoding="utf-8") as f:
             source = f.read()
     elif "module" in meta:
