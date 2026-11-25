@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GWO Lab — Grey Wolf Optimization Benchmark</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark">GWO</span>
+        <div>
+          <div class="brand-title">Grey Wolf Optimization Lab</div>
+          <div class="brand-sub">4-Variant Ablation &amp; 12-Problem Benchmark</div>
+        </div>
+      </div>
+
+      <nav class="nav" role="tablist">
+        <button class="nav-btn active" data-view="compare">Comparison</button>
+        <button class="nav-btn" data-view="suite">12-Problem Suite</button>
+        <button class="nav-btn" data-view="arena">2D Swarm View</button>
+        <button class="nav-btn" data-view="algorithms">Algorithms &amp; Code</button>
+      </nav>
+
+      <button class="icon-btn" id="themeToggle" title="Toggle light / dark mode" aria-label="Toggle theme">
+        <span id="themeLabel">Dark</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Shared Experiment Control Bar -->
+    <section class="control-bar">
+      <div class="control-group grow" id="problemControlWrap">
+        <label for="problemSelect">Problem</label>
+        <select id="problemSelect"></select>
+      </div>
+
+      <div class="control-group grow hidden" id="benchmark2dWrap">
+        <label for="benchmark2dSelect">2D Surface</label>
+        <select id="benchmark2dSelect"></select>
+      </div>
+
+      <div class="control-group compact">
+        <label for="nAgents">Pack Size (N)</label>
+        <input type="number" id="nAgents" value="20" min="6" max="50" step="2" />
+      </div>
+
+      <div class="control-group compact">
+        <label for="maxIter">Iterations (T)</label>
+        <input type="number" id="maxIter" value="40" min="10" max="120" step="5" />
+      </div>
+
+      <div class="control-group compact">
+        <label for="popWeight">Pop Weight (&lambda;)</label>
+        <input type="number" id="popWeight" value="0.25" min="0.05" max="0.60" step="0.05" />
+      </div>
+
+      <div class="control-group compact">
+        <label for="seedInput">Seed</label>
+        <input type="number" id="seedInput" value="42" min="0" max="99999" />
+      </div>
+
+      <button class="btn-primary" id="runBtn">Run Comparison</button>
+    </section>
+
+    <!-- VIEW 1: SINGLE-PROBLEM COMPARISON -->
+    <section id="view-compare" class="view active">
+      <div class="problem-banner" id="problemBanner">
+        <div>
+          <div class="meta-line">
+            <span class="tag" id="probModeTag">MAXIMIZE</span>
+            <span class="tag muted" id="probCatTag">Combinatorial</span>
+            <span class="mono small" id="probDimTag">20D</span>
+          </div>
+          <h1 id="probTitle">0/1 Knapsack (20 Items)</h1>
+          <p id="probDesc"></p>
+        </div>
+        <div class="banner-stat" id="winnerSummary"></div>
+      </div>
+
+      <!-- 4 Algorithm Result Cards with Individual "Show Code" Buttons -->
+      <div class="algo-grid" id="algoCards"></div>
+
+      <!-- Charts Row -->
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Convergence Curve</h2>
+            <span class="muted-text" id="convDirectionHint">Higher is better</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="convCanvas" width="640" height="300"></canvas>
+          </div>
+          <div class="legend" id="convLegend"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Convergence Factor a(t) &amp; Diversity</h2>
+            <div class="segmented" id="auxChartToggle">
+              <button class="seg-btn active" data-mode="a_curve">Factor a(t)</button>
+              <button class="seg-btn" data-mode="diversity">Diversity</button>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="auxCanvas" width="640" height="300"></canvas>
+          </div>
+          <div class="legend" id="auxLegend"></div>
+        </div>
+      </div>
+
+      <!-- Domain Solution + Initial Population Audit Row -->
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Solution Breakdown</h2>
+            <select id="solutionAlgoSelect" class="inline-select"></select>
+          </div>
+          <div id="domainVisualizer"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Initial Population Leader Audit (t = 0)</h2>
+            <span class="mono small" id="initAnchorLabel">Anchor P*: —</span>
+          </div>
+          <p class="panel-note">
+            Shows how Dual-Criteria &amp; Combined GWO inspect the initial population to score both Population Value and Fitness before selecting Alpha, Beta, and Delta.
+          </p>
+          <div class="table-scroll">
+            <table class="data-table" id="auditTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Wolf</th>
+                  <th>Role</th>
+                  <th>Pop Value</th>
+                  <th>Fitness</th>
+                  <th>Score</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: 12-PROBLEM BENCHMARK SUITE -->
+    <section id="view-suite" class="view">
+      <div class="section-head">
+        <div>
+          <h1>12-Problem Benchmark Suite</h1>
+          <p>Compares all 4 GWO variants across 6 maximization and 6 minimization problems (Knapsack, TSP, Network Flow, Cloud VM, Bin Packing, Portfolio, Facility Location, Max-Cut, Hybrid IR, Rastrigin, Ackley, Rosenbrock).</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn-secondary" id="exportCsvBtn">Export CSV</button>
+          <button class="btn-primary" id="runSuiteBtn">Run All 12 Problems</button>
+        </div>
+      </div>
+
+      <div class="scoreboard" id="suiteScoreboard"></div>
+
+      <div class="panel">
+        <div class="table-scroll">
+          <table class="data-table" id="suiteTable">
+            <thead>
+              <tr>
+                <th>Problem</th>
+                <th>Goal</th>
+                <th>Dim</th>
+                <th>Original GWO</th>
+                <th>Non-Linear a</th>
+                <th>Dual-Criteria</th>
+                <th>Combined</th>
+                <th>Winner</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: LIVE 2D SWARM VISUALIZER -->
+    <section id="view-arena" class="view">
+      <div class="section-head">
+        <div>
+          <h1>2D Swarm Working Visualizer</h1>
+          <p>Watch all 4 GWO algorithms search the exact same 2D surface side-by-side. White diamonds mark the Alpha leader; the crosshair marks the global optimum.</p>
+        </div>
+        <div class="playback-controls">
+          <button class="btn-primary" id="playPauseBtn">Play</button>
+          <button class="btn-secondary" id="resetAnimBtn">Reset</button>
+          <input type="range" id="iterSlider" min="0" max="34" value="0" />
+          <span class="mono small" id="iterReadout">Iter 1 / 35</span>
+        </div>
+      </div>
+
+      <div class="arena-grid" id="arenaGrid"></div>
+    </section>
+
+    <!-- VIEW 4: ALGORITHMS & CODE -->
+    <section id="view-algorithms" class="view">
+      <div class="section-head">
+        <div>
+          <h1>4 GWO Algorithm Variants</h1>
+          <p>Click <strong>Show Code</strong> on any variant to inspect its exact Python implementation used by the solver.</p>
+        </div>
+      </div>
+
+      <div class="algo-spec-grid" id="algoSpecGrid"></div>
+    </section>
+  </main>
+
+  <!-- Clean Single-Algorithm Code Modal -->
+  <div class="modal-backdrop hidden" id="codeModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-head">
+        <div>
+          <span class="mono small muted-text" id="modalFile">optimizers/gwo_original.py</span>
+          <h3 id="modalTitle">Original GWO</h3>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-secondary small-btn" id="copyCodeBtn">Copy</button>
+          <button class="btn-secondary small-btn" id="closeModalBtn">Close</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <pre class="code-block"><code id="codeContent"></code></pre>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <span>GWO Metaheuristics Lab &middot; Course 23B61CA413</span>
+      <span class="mono small">FastAPI + NumPy &middot; Vercel Ready</span>
+    </div>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
