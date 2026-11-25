@@ -3,48 +3,54 @@ import numpy as np
 from optimizers.common import RunResult, is_better, pack_diversity, convergence_iteration
 
 
-def select_column_best_leaders(positions, fitness_vals, mode="min"):
+def select_tiered_column_leaders(positions, fitness_vals, mode="min"):
     table = np.column_stack([positions, fitness_vals])
     n_wolves, n_cols = table.shape
+    tier1 = np.zeros(n_wolves, dtype=int)
+    tier2 = np.zeros(n_wolves, dtype=int)
+    tier3 = np.zeros(n_wolves, dtype=int)
+
+    for c in range(n_cols):
+        col = table[:, c]
+        uniq = np.unique(np.round(col, 12))
+        ordered_vals = uniq if mode == "min" else uniq[::-1]
+        if len(ordered_vals) >= 1:
+            tier1 += np.isclose(col, ordered_vals[0], rtol=0.0, atol=1e-12).astype(int)
+        if len(ordered_vals) >= 2:
+            tier2 += np.isclose(col, ordered_vals[1], rtol=0.0, atol=1e-12).astype(int)
+        if len(ordered_vals) >= 3:
+            tier3 += np.isclose(col, ordered_vals[2], rtol=0.0, atol=1e-12).astype(int)
+
     remaining = list(range(n_wolves))
-    selected = []
-    pass_records = []
 
-    for _ in range(min(3, n_wolves)):
-        sub = table[remaining]
-        col_best = np.min(sub, axis=0) if mode == "min" else np.max(sub, axis=0)
-        hits = np.isclose(sub, col_best[None, :], rtol=0.0, atol=1e-12)
-        counts = np.sum(hits, axis=1)
+    def fit_key(idx):
+        return -fitness_vals[idx] if mode == "min" else fitness_vals[idx]
 
-        if len(pass_records) == 0:
-            pass_records = [
-                {
-                    "index": remaining[k],
-                    "boxes": int(counts[k]),
-                    "total_cols": n_cols,
-                    "won_cols": [
-                        f"x{c + 1}" if c < n_cols - 1 else "f(x)"
-                        for c in range(n_cols)
-                        if hits[k, c]
-                    ],
-                }
-                for k in range(len(remaining))
-            ]
+    a_idx = max(remaining, key=lambda i: (int(tier1[i]), int(tier2[i]), int(tier3[i]), fit_key(i)))
+    remaining.remove(a_idx)
 
-        best_local = max(
-            range(len(remaining)),
-            key=lambda k: (
-                int(counts[k]),
-                -fitness_vals[remaining[k]] if mode == "min" else fitness_vals[remaining[k]],
-            ),
-        )
-        chosen_idx = remaining.pop(best_local)
-        selected.append(chosen_idx)
+    if remaining:
+        b_idx = max(remaining, key=lambda i: (int(tier2[i]), int(tier1[i] + tier2[i]), int(tier3[i]), fit_key(i)))
+        remaining.remove(b_idx)
+    else:
+        b_idx = a_idx
 
-    while len(selected) < 3:
-        selected.append(selected[-1])
+    if remaining:
+        d_idx = max(remaining, key=lambda i: (int(tier3[i]), int(tier1[i] + tier2[i] + tier3[i]), fit_key(i)))
+    else:
+        d_idx = b_idx
 
-    return selected[0], selected[1], selected[2], pass_records
+    records = [
+        {
+            "index": i,
+            "t1": int(tier1[i]),
+            "t2": int(tier2[i]),
+            "t3": int(tier3[i]),
+            "total_cols": n_cols,
+        }
+        for i in range(n_wolves)
+    ]
+    return a_idx, b_idx, d_idx, records
 
 
 def run_dual_criteria_gwo(
@@ -65,51 +71,63 @@ def run_dual_criteria_gwo(
     dim = len(lb)
 
     positions = lb + rng.random((n_agents, dim)) * (ub - lb)
+    fitness_vals = np.array([float(obj_func(p)) for p in positions], dtype=float)
 
-    best_pos = positions[0].copy()
-    best_fit = np.inf if mode == "min" else -np.inf
+    a_idx, b_idx, d_idx, records = select_tiered_column_leaders(positions, fitness_vals, mode)
+    alpha_pos, alpha_score = positions[a_idx].copy(), float(fitness_vals[a_idx])
+    beta_pos, beta_score = positions[b_idx].copy(), float(fitness_vals[b_idx])
+    delta_pos, delta_score = positions[d_idx].copy(), float(fitness_vals[d_idx])
+
+    best_idx = int(np.argmin(fitness_vals) if mode == "min" else np.argmax(fitness_vals))
+    best_pos = positions[best_idx].copy()
+    best_fit = float(fitness_vals[best_idx])
+
+    roles = {a_idx: "Alpha", b_idx: "Beta", d_idx: "Delta"}
+    ordered = sorted(
+        records,
+        key=lambda r: (
+            0 if r["index"] == a_idx else (1 if r["index"] == b_idx else (2 if r["index"] == d_idx else 3)),
+            -(r["t1"] + r["t2"] + r["t3"]),
+            fitness_vals[r["index"]] if mode == "min" else -fitness_vals[r["index"]],
+        ),
+    )
+    initial_audit = []
+    for rank_i, rec in enumerate(ordered, start=1):
+        wi = rec["index"]
+        initial_audit.append({
+            "rank": rank_i,
+            "wolf": f"W-{wi + 1:02d}",
+            "role": roles.get(wi, "Omega"),
+            "t1": rec["t1"],
+            "t2": rec["t2"],
+            "t3": rec["t3"],
+            "total_cols": rec["total_cols"],
+            "fitness": round(float(fitness_vals[wi]), 5),
+        })
 
     convergence_curve = []
     a_curve = []
     diversity_curve = []
     trajectories = []
     leaders = []
-    initial_audit = []
 
     for t in range(max_iter):
-        positions = np.clip(positions, lb, ub)
-        fitness_vals = np.array([float(obj_func(p)) for p in positions], dtype=float)
-
-        for i in range(n_agents):
-            if is_better(fitness_vals[i], best_fit, mode):
-                best_fit = float(fitness_vals[i])
-                best_pos = positions[i].copy()
-
-        a_idx, b_idx, d_idx, pass0 = select_column_best_leaders(positions, fitness_vals, mode)
-        alpha_pos = positions[a_idx].copy()
-        beta_pos = positions[b_idx].copy()
-        delta_pos = positions[d_idx].copy()
-
-        if t == 0:
-            roles = {a_idx: "Alpha", b_idx: "Beta", d_idx: "Delta"}
-            ordered = sorted(
-                pass0,
-                key=lambda r: (
-                    0 if r["index"] == a_idx else (1 if r["index"] == b_idx else (2 if r["index"] == d_idx else 3)),
-                    -r["boxes"],
-                    fitness_vals[r["index"]] if mode == "min" else -fitness_vals[r["index"]],
-                ),
-            )
-            for rank_i, rec in enumerate(ordered, start=1):
-                wi = rec["index"]
-                initial_audit.append({
-                    "rank": rank_i,
-                    "wolf": f"W-{wi + 1:02d}",
-                    "role": roles.get(wi, "Omega"),
-                    "boxes": f"{rec['boxes']} / {rec['total_cols']}",
-                    "won_cols": ", ".join(rec["won_cols"][:5]) + ("..." if len(rec["won_cols"]) > 5 else "") if rec["won_cols"] else "—",
-                    "fitness": round(float(fitness_vals[wi]), 5),
-                })
+        if t > 0:
+            for i in range(n_agents):
+                positions[i] = np.clip(positions[i], lb, ub)
+                fitness = float(obj_func(positions[i]))
+                if is_better(fitness, best_fit, mode):
+                    best_fit = fitness
+                    best_pos = positions[i].copy()
+                if is_better(fitness, alpha_score, mode):
+                    delta_score, delta_pos = beta_score, beta_pos.copy()
+                    beta_score, beta_pos = alpha_score, alpha_pos.copy()
+                    alpha_score, alpha_pos = fitness, positions[i].copy()
+                elif is_better(fitness, beta_score, mode):
+                    delta_score, delta_pos = beta_score, beta_pos.copy()
+                    beta_score, beta_pos = fitness, positions[i].copy()
+                elif is_better(fitness, delta_score, mode):
+                    delta_score, delta_pos = fitness, positions[i].copy()
 
         progress = t / max(1, max_iter - 1)
         a = 2.0 * (1.0 - progress)
